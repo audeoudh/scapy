@@ -5,6 +5,7 @@
 # Copyright (C) Roger Meyer <roger.meyer@csus.edu>: 2012-03-10 Added frames
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>: 2018
 # Copyright (C) 2020 Dimitrios-Georgios Akestoridis <akestoridis@cmu.edu>
+# Copyright (C) 2020 Henry-Joseph Audéoud <audeoudh@univ-grenoble-alpes.fr>
 # This program is published under a GPLv2 license
 
 """
@@ -23,8 +24,65 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, Field, LELongField, PacketField, XByteField, \
     XLEIntField, XLEShortField, FCSField, Emph, FieldListField
 
-# Fields #
 
+# Utility Functions #
+
+def panids_present(pkt):
+    """Check if PAN IDs are present, according to Frame Control flags.
+
+    Return two booleans, indicating if resp. dest and src PAN IDs are present.
+    """
+    if pkt.fcf_framever <= 0b01:
+        if pkt.fcf_destaddrmode != 0b00 and pkt.fcf_srcaddrmode != 0b00:
+            return True, not pkt.fcf_panidcompress
+        else:
+            return pkt.fcf_destaddrmode != 0b00, pkt.fcf_srcaddrmode != 0b00
+    else:  # 2015 version
+        # Table 7-2 from IEEE 802.15.4-2015
+        key = pkt.fcf_destaddrmode, pkt.fcf_srcaddrmode, pkt.fcf_panidcompress
+        if key == (0b00, 0b00, 0):
+            return False, False
+        elif key == (0b00, 0b00, 1):
+            return True, False
+        elif key == (0b10, 0b00, 0):
+            return True, False
+        elif key == (0b11, 0b00, 0):
+            return True, False
+        elif key == (0b10, 0b00, 1):
+            return False, False
+        elif key == (0b11, 0b00, 1):
+            return False, False
+        elif key == (0b00, 0b10, 0):
+            return False, True
+        elif key == (0b00, 0b11, 0):
+            return False, True
+        elif key == (0b00, 0b10, 1):
+            return False, False
+        elif key == (0b00, 0b11, 1):
+            return False, False
+        elif key == (0b11, 0b11, 0):
+            return True, False
+        elif key == (0b11, 0b11, 1):
+            return False, False
+        elif key == (0b10, 0b10, 0):
+            return True, True
+        elif key == (0b10, 0b11, 0):
+            return True, True
+        elif key == (0b11, 0b10, 0):
+            return True, True
+        elif key == (0b10, 0b11, 1):
+            return True, False
+        elif key == (0b11, 0b10, 1):
+            return True, False
+        elif key == (0b10, 0b10, 1):
+            return True, False
+        else:
+            # Use of reserved address mode 0b01.  Unknown behaviour.  Return
+            # something, but it'll certainly be wrong.
+            return True, True
+
+
+# Fields #
 
 class dot15d4AddressField(Field):
     __slots__ = ["adjust", "length_of"]
@@ -104,18 +162,6 @@ class Dot15d4(Packet):
 
     def mysummary(self):
         return self.sprintf("802.15.4 %Dot15d4.fcf_frametype% ackreq(%Dot15d4.fcf_ackreq%) ( %Dot15d4.fcf_destaddrmode% -> %Dot15d4.fcf_srcaddrmode% ) Seq#%Dot15d4.seqnum%")  # noqa: E501
-
-    def guess_payload_class(self, payload):
-        if self.fcf_frametype == 0x00:
-            return Dot15d4Beacon
-        elif self.fcf_frametype == 0x01:
-            return Dot15d4Data
-        elif self.fcf_frametype == 0x02:
-            return Dot15d4Ack
-        elif self.fcf_frametype == 0x03:
-            return Dot15d4Cmd
-        else:
-            return Packet.guess_payload_class(self, payload)
 
     def answers(self, other):
         if isinstance(other, Dot15d4):
@@ -211,7 +257,7 @@ class Dot15d4Data(Packet):
         XLEShortField("dest_panid", 0xFFFF),
         dot15d4AddressField("dest_addr", 0xFFFF, length_of="fcf_destaddrmode"),
         ConditionalField(XLEShortField("src_panid", 0x0),
-                         lambda pkt:util_srcpanid_present(pkt)),
+                         lambda pkt:panids_present(pkt.underlayer)[1]),
         ConditionalField(dot15d4AddressField("src_addr", None, length_of="fcf_srcaddrmode"),  # noqa: E501
                          lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),  # noqa: E501
         # Security field present if fcf_security == True
@@ -299,8 +345,8 @@ class Dot15d4Cmd(Packet):
         XLEShortField("dest_panid", 0xFFFF),
         # Users should correctly set the dest_addr field. By default is 0x0 for construction to work.  # noqa: E501
         dot15d4AddressField("dest_addr", 0x0, length_of="fcf_destaddrmode"),
-        ConditionalField(XLEShortField("src_panid", 0x0), \
-                         lambda pkt:util_srcpanid_present(pkt)),
+        ConditionalField(XLEShortField("src_panid", 0x0),
+                         lambda pkt:panids_present(pkt.underlayer)[1]),
         ConditionalField(dot15d4AddressField("src_addr", None,
                          length_of="fcf_srcaddrmode"),
                          lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),  # noqa: E501
@@ -370,17 +416,6 @@ class Dot15d4CmdCoordRealignPage(Packet):
     fields_desc = [
         ByteField("channel_page", 0),
     ]
-
-
-# Utility Functions #
-
-
-def util_srcpanid_present(pkt):
-    '''A source PAN ID is included if and only if both src addr mode != 0 and PAN ID Compression in FCF == 0'''  # noqa: E501
-    if (pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0) and (pkt.underlayer.getfieldval("fcf_panidcompress") == 0):  # noqa: E501
-        return True
-    else:
-        return False
 
 
 class Dot15d4CmdAssocReq(Packet):
