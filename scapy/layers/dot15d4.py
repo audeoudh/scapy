@@ -371,22 +371,6 @@ class Dot15d4Cmd(Packet):
     def mysummary(self):
         return self.sprintf("802.15.4 Command %Dot15d4Cmd.cmd_id% ( %Dot15dCmd.src_panid%:%Dot15d4Cmd.src_addr% -> %Dot15d4Cmd.dest_panid%:%Dot15d4Cmd.dest_addr% )")  # noqa: E501
 
-    # command frame payloads are complete: DataReq, PANIDConflictNotify, OrphanNotify, BeaconReq don't have any payload  # noqa: E501
-    # Although BeaconReq can have an optional ZigBee Beacon payload (implemented in ZigBeeBeacon)  # noqa: E501
-    def guess_payload_class(self, payload):
-        if self.cmd_id == 1:
-            return Dot15d4CmdAssocReq
-        elif self.cmd_id == 2:
-            return Dot15d4CmdAssocResp
-        elif self.cmd_id == 3:
-            return Dot15d4CmdDisassociation
-        elif self.cmd_id == 8:
-            return Dot15d4CmdCoordRealign
-        elif self.cmd_id == 9:
-            return Dot15d4CmdGTSReq
-        else:
-            return Packet.guess_payload_class(self, payload)
-
 
 class Dot15d4CmdCoordRealign(Packet):
     name = "802.15.4 Coordinator Realign Command"
@@ -494,6 +478,11 @@ bind_layers(Dot15d4, Dot15d4Beacon, fcf_frametype=0)
 bind_layers(Dot15d4, Dot15d4Data, fcf_frametype=1)
 bind_layers(Dot15d4, Dot15d4Ack, fcf_frametype=2)
 bind_layers(Dot15d4, Dot15d4Cmd, fcf_frametype=3)
+bind_layers(Dot15d4Cmd, Dot15d4CmdAssocReq, cmd_id=0x01)
+bind_layers(Dot15d4Cmd, Dot15d4CmdAssocResp, cmd_id=0x02)
+bind_layers(Dot15d4Cmd, Dot15d4CmdDisassociation, cmd_id=0x03)
+bind_layers(Dot15d4Cmd, Dot15d4CmdCoordRealign, cmd_id=0x08)
+bind_layers(Dot15d4Cmd, Dot15d4CmdGTSReq, cmd_id=0x09)
 
 # DLT Types #
 conf.l2types.register(DLT_IEEE802_15_4_WITHFCS, Dot15d4FCS)
