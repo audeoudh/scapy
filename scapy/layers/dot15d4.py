@@ -145,30 +145,60 @@ class dot15d4AddressField(Field):
 # Layers #
 
 class Dot15d4(Packet):
+    FRAME_TYPE = {
+        0b000: "Beacon",
+        0b001: "Data",
+        0b010: "Ack",
+        0b011: "Command",
+        0b101: "Multipurpose",
+        0b110: "Fragment",
+        0b111: "Extended"
+    }
+
+    ADDRESSING_MODE = {
+        0b00: "Not present",
+        0b10: "Short",
+        0b11: "Extended"
+    }
+
+    FRAME_VERSION = {
+        0b00: "2003",
+        0b01: "2006",
+        0b10: "2015"
+    }
+
     name = "802.15.4"
     fields_desc = [
-        BitField("fcf_reserved_1", 0, 1),  # fcf p1 b1
+        # Frame control
+        BitField("fcf_reserved_1", 0, 1),
         BitEnumField("fcf_panidcompress", 0, 1, [False, True]),
         BitEnumField("fcf_ackreq", 0, 1, [False, True]),
         BitEnumField("fcf_pending", 0, 1, [False, True]),
-        BitEnumField("fcf_security", 0, 1, [False, True]),  # fcf p1 b2
-        Emph(BitEnumField("fcf_frametype", 0, 3, {0: "Beacon", 1: "Data", 2: "Ack", 3: "Command"})),  # noqa: E501
-        BitEnumField("fcf_srcaddrmode", 0, 2, {0: "None", 1: "Reserved", 2: "Short", 3: "Long"}),  # fcf p2 b1  # noqa: E501
-        BitField("fcf_framever", 0, 2),  # 00 compatibility with 2003 version; 01 compatible with 2006 version  # noqa: E501
-        BitEnumField("fcf_destaddrmode", 2, 2, {0: "None", 1: "Reserved", 2: "Short", 3: "Long"}),  # fcf p2 b2  # noqa: E501
+        BitEnumField("fcf_security", 0, 1, [False, True]),
+        Emph(BitEnumField("fcf_frametype", 0, 3, FRAME_TYPE)),
+        BitEnumField("fcf_srcaddrmode", 0, 2, ADDRESSING_MODE),
+        BitEnumField("fcf_framever", 0, 2, FRAME_VERSION),
+        BitEnumField("fcf_destaddrmode", 2, 2, ADDRESSING_MODE),
         BitField("fcf_reserved_2", 0, 2),
-        Emph(ByteField("seqnum", 1))  # sequence number
+        # Sequence number
+        Emph(ByteField("seqnum", 1)),
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 %Dot15d4.fcf_frametype% ackreq(%Dot15d4.fcf_ackreq%) ( %Dot15d4.fcf_destaddrmode% -> %Dot15d4.fcf_srcaddrmode% ) Seq#%Dot15d4.seqnum%")  # noqa: E501
+        return self.sprintf(
+            "802.15.4 %Dot15d4.fcf_frametype% "
+            "(ackreq=%Dot15d4.fcf_ackreq% "
+            "%Dot15d4.fcf_destaddrmode% -> %Dot15d4.fcf_srcaddrmode% "
+            "Seq#%Dot15d4.seqnum%)")
 
     def answers(self, other):
         if isinstance(other, Dot15d4):
             if self.fcf_frametype == 2:  # ack
-                if self.seqnum != other.seqnum:  # check for seqnum matching
+                # check for seqnum matching
+                if self.seqnum != other.seqnum:
                     return 0
-                elif other.fcf_ackreq == 1:  # check that an ack was indeed requested  # noqa: E501
+                # check that an ack was indeed requested
+                elif other.fcf_ackreq == 1:
                     return 1
         return 0
 
@@ -184,12 +214,13 @@ class Dot15d4(Packet):
 
 
 class Dot15d4FCS(Dot15d4):
-    '''
-    This class is a drop-in replacement for the Dot15d4 class above, except
-    it expects a FCS/checksum in the input, and produces one in the output.
-    This provides the user flexibility, as many 802.15.4 interfaces will have an AUTO_CRC setting  # noqa: E501
-    that will validate the FCS/CRC in firmware, and add it automatically when transmitting.  # noqa: E501
-    '''
+    """Drop-in replacement for Dot15d4 with support of FCS/checksum.
+
+    This class expects a FCS/checksum in the input, and produces one in the
+    output.  This provides the user flexibility, as many 802.15.4 interfaces
+    will have an AUTO_CRC setting that will validate the FCS/CRC in firmware,
+    and add it automatically when transmitting.
+    """
     name = "802.15.4 - FCS"
     match_subclass = True
     fields_desc = Dot15d4.fields_desc + [FCSField("fcs", None, fmt="<H")]
@@ -218,37 +249,59 @@ class Dot15d4FCS(Dot15d4):
         return p
 
 
-class Dot15d4Ack(Packet):
-    name = "802.15.4 Ack"
-    fields_desc = []
-
-
 class Dot15d4AuxSecurityHeader(Packet):
+    KEY_IDENTIFIER_MODE = {
+        # Key is determined implicitly from the originator and recipient(s) of
+        # the frame
+        0: "Implicit",
+        # Key is determined explicitly from the the 1-octet Key Index subfield
+        # of the Key Identifier field
+        1: "1oKeyIndex",
+        # Key is determined explicitly from the 4-octet Key Source and the
+        # 1-octet Key Index
+        2: "4o-KeySource-1oKeyIndex",
+        # Key is determined explicitly from the 8-octet Key Source and the
+        # 1-octet Key Index
+        3: "8o-KeySource-1oKeyIndex"
+    }
+
+    SEC_LEVEL = {
+        0: "None",
+        1: "MIC-32",
+        2: "MIC-64",
+        3: "MIC-128",
+        4: "ENC",
+        5: "ENC-MIC-32",
+        6: "ENC-MIC-64",
+        7: "ENC-MIC-128"
+    }
+
     name = "802.15.4 Auxiliary Security Header"
     fields_desc = [
         BitField("sec_sc_reserved", 0, 3),
-        # Key Identifier Mode
-        # 0: Key is determined implicitly from the originator and recipient(s) of the frame  # noqa: E501
-        # 1: Key is determined explicitly from the the 1-octet Key Index subfield of the Key Identifier field  # noqa: E501
-        # 2: Key is determined explicitly from the 4-octet Key Source and the 1-octet Key Index  # noqa: E501
-        # 3: Key is determined explicitly from the 8-octet Key Source and the 1-octet Key Index  # noqa: E501
-        BitEnumField("sec_sc_keyidmode", 0, 2, {
-            0: "Implicit", 1: "1oKeyIndex", 2: "4o-KeySource-1oKeyIndex", 3: "8o-KeySource-1oKeyIndex"}  # noqa: E501
-        ),
-        BitEnumField("sec_sc_seclevel", 0, 3, {0: "None", 1: "MIC-32", 2: "MIC-64", 3: "MIC-128", 4: "ENC", 5: "ENC-MIC-32", 6: "ENC-MIC-64", 7: "ENC-MIC-128"}),  # noqa: E501
-        XLEIntField("sec_framecounter", 0x00000000),  # 4 octets
-        # Key Identifier (variable length): identifies the key that is used for cryptographic protection  # noqa: E501
-        # Key Source : length of sec_keyid_keysource varies btwn 0, 4, and 8 bytes depending on sec_sc_keyidmode  # noqa: E501
+        BitEnumField("sec_sc_keyidmode", 0, 2, KEY_IDENTIFIER_MODE),
+        BitEnumField("sec_sc_seclevel", 0, 3, SEC_LEVEL),
+        XLEIntField("sec_framecounter", 0x00000000),
+        # Key Identifier (variable length): identifies the key that is used for
+        # cryptographic protection.
+        # Key Source : length of sec_keyid_keysource varies btwn 0, 4, and 8
+        # bytes depending on sec_sc_keyidmode.
         # 4 octets when sec_sc_keyidmode == 2
-        ConditionalField(XLEIntField("sec_keyid_keysource", 0x00000000),
+        ConditionalField(XLEIntField("sec_keyid_keysource", 0),
                          lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 2),
         # 8 octets when sec_sc_keyidmode == 3
-        ConditionalField(LELongField("sec_keyid_keysource", 0x0000000000000000),  # noqa: E501
+        ConditionalField(LELongField("sec_keyid_keysource", 0),
                          lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 3),
-        # Key Index (1 octet): allows unique identification of different keys with the same originator  # noqa: E501
+        # Key Index (1 octet): allows unique identification of different keys
+        # with the same originator.
         ConditionalField(XByteField("sec_keyid_keyindex", 0xFF),
                          lambda pkt: pkt.getfieldval("sec_sc_keyidmode") != 0),
     ]
+
+
+class Dot15d4Ack(Packet):
+    name = "802.15.4 Ack"
+    fields_desc = []
 
 
 class Dot15d4Data(Packet):
@@ -287,7 +340,10 @@ class Dot15d4Data(Packet):
             return SixLoWPAN
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Data ( %Dot15d4Data.src_panid%:%Dot15d4Data.src_addr% -> %Dot15d4Data.dest_panid%:%Dot15d4Data.dest_addr% )")  # noqa: E501
+        return self.sprintf(
+            "802.15.4 Data "
+            "( %Dot15d4Data.src_panid%:%Dot15d4Data.src_addr% "
+            "-> %Dot15d4Data.dest_panid%:%Dot15d4Data.dest_addr% )")
 
 
 class Dot15d4Beacon(Packet):
@@ -336,10 +392,27 @@ class Dot15d4Beacon(Packet):
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Beacon ( %Dot15d4Beacon.src_panid%:%Dot15d4Beacon.src_addr% ) assocPermit(%Dot15d4Beacon.sf_assocpermit%) panCoord(%Dot15d4Beacon.sf_pancoord%)")  # noqa: E501
+        return self.sprintf(
+            "802.15.4 Beacon "
+            "( %Dot15d4Beacon.src_panid%:%Dot15d4Beacon.src_addr% "
+            "assocPermit %Dot15d4Beacon.sf_assocpermit% "
+            "panCoord %Dot15d4Beacon.sf_pancoord%)")
 
 
 class Dot15d4Cmd(Packet):
+    COMMAND_IDS = {
+        1: "AssocReq",  # Association request
+        2: "AssocResp",  # Association response
+        3: "DisassocNotify",  # Disassociation notification
+        4: "DataReq",  # Data request
+        5: "PANIDConflictNotify",  # PAN ID conflict notification
+        6: "OrphanNotify",  # Orphan notification
+        7: "BeaconReq",  # Beacon request
+        8: "CoordRealign",  # coordinator realignment
+        9: "GTSReq"  # GTS request
+        # 0x0a - 0xff reserved
+    }
+
     name = "802.15.4 Command"
     fields_desc = [
         XLEShortField("dest_panid", 0xFFFF),
@@ -353,23 +426,14 @@ class Dot15d4Cmd(Packet):
         # Security field present if fcf_security == True
         ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),  # noqa: E501
                          lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),  # noqa: E501
-        ByteEnumField("cmd_id", 0, {
-            1: "AssocReq",  # Association request
-            2: "AssocResp",  # Association response
-            3: "DisassocNotify",  # Disassociation notification
-            4: "DataReq",  # Data request
-            5: "PANIDConflictNotify",  # PAN ID conflict notification
-            6: "OrphanNotify",  # Orphan notification
-            7: "BeaconReq",  # Beacon request
-            8: "CoordRealign",  # coordinator realignment
-            9: "GTSReq"  # GTS request
-            # 0x0a - 0xff reserved
-        }),
-        # TODO command payload
+        ByteEnumField("cmd_id", 0, COMMAND_IDS),
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Command %Dot15d4Cmd.cmd_id% ( %Dot15dCmd.src_panid%:%Dot15d4Cmd.src_addr% -> %Dot15d4Cmd.dest_panid%:%Dot15d4Cmd.dest_addr% )")  # noqa: E501
+        return self.sprintf(
+            "802.15.4 Command %Dot15d4Cmd.cmd_id% "
+            "( %Dot15d.src_panid%:%Dot15d4.src_addr% "
+            "-> %Dot15d4.dest_panid%:%Dot15d4.dest_addr% )")
 
 
 class Dot15d4CmdCoordRealign(Packet):
@@ -379,14 +443,18 @@ class Dot15d4CmdCoordRealign(Packet):
         XLEShortField("panid", 0xFFFF),
         # Coordinator Short Address (2 octets)
         XLEShortField("coord_address", 0x0000),
-        # Logical Channel (1 octet): the logical channel that the coordinator intends to use for all future communications  # noqa: E501
+        # Logical Channel (1 octet): the logical channel that the coordinator
+        # intends to use for all future communications
         ByteField("channel", 0),
         # Short Address (2 octets)
         XLEShortField("dev_address", 0xFFFF),
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Coordinator Realign Payload ( PAN ID: %Dot15dCmdCoordRealign.pan_id% : channel %Dot15d4CmdCoordRealign.channel% )")  # noqa: E501
+        return self.sprintf(
+            "802.15.4 Coordinator Realign Payload "
+            "( PAN ID: %Dot15dCmdCoordRealign.pan_id% "
+            "channel %Dot15d4CmdCoordRealign.channel% )")
 
     def guess_payload_class(self, payload):
         if len(payload) == 1:
@@ -403,7 +471,7 @@ class Dot15d4CmdCoordRealignPage(Packet):
 
 
 class Dot15d4CmdAssocReq(Packet):
-    name = "802.15.4 Association Request Payload"
+    name = "802.15.4 Association Request Command"
     fields_desc = [
         BitField("allocate_address", 0, 1),  # Allocate Address
         BitField("security_capability", 0, 1),  # Security Capability
@@ -412,48 +480,60 @@ class Dot15d4CmdAssocReq(Packet):
         BitField("receiver_on_when_idle", 0, 1),  # Receiver On When Idle
         BitField("power_source", 0, 1),  # Power Source
         BitField("device_type", 0, 1),  # Device Type
-        BitField("alternate_pan_coordinator", 0, 1),  # Alternate PAN Coordinator  # noqa: E501
+        BitField("alternate_pan_coordinator", 0, 1),  # Alternate PAN Coord.
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Association Request Payload ( Alt PAN Coord: %Dot15d4CmdAssocReq.alternate_pan_coordinator% Device Type: %Dot15d4CmdAssocReq.device_type% )")  # noqa: E501
+        return self.sprintf(
+            "802.15.4 Association Request Command "
+            "( Alt PAN Coord: %Dot15d4CmdAssocReq.alternate_pan_coordinator% "
+            "Device Type: %Dot15d4CmdAssocReq.device_type% )")
 
 
 class Dot15d4CmdAssocResp(Packet):
-    name = "802.15.4 Association Response Payload"
-    fields_desc = [
-        XLEShortField("short_address", 0xFFFF),  # Address assigned to device from coordinator (0xFFFF == none)  # noqa: E501
-        # Association Status
-        # 0x00 == successful
-        # 0x01 == PAN at capacity
-        # 0x02 == PAN access denied
+    ASSOCIATION_STATUS = {
+        0x00: 'successful',
+        0x01: 'PAN_at_capacity',
+        0x02: 'PAN_access_denied'
         # 0x03 - 0x7f == Reserved
         # 0x80 - 0xff == Reserved for MAC primitive enumeration values
-        ByteEnumField("association_status", 0x00, {0: 'successful', 1: 'PAN_at_capacity', 2: 'PAN_access_denied'}),  # noqa: E501
+    }
+
+    name = "802.15.4 Association Response Command"
+    fields_desc = [
+        # Address assigned to device from coordinator (0xFFFF == none)
+        XLEShortField("short_address", 0xFFFF),
+        ByteEnumField("association_status", 0x00, ASSOCIATION_STATUS),
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Association Response Payload ( Association Status: %Dot15d4CmdAssocResp.association_status% Assigned Address: %Dot15d4CmdAssocResp.short_address% )")  # noqa: E501
+        return self.sprintf(
+            "802.15.4 Association Response Command"
+            "( Association Status: %Dot15d4CmdAssocResp.association_status% "
+            "Assigned Address: %Dot15d4CmdAssocResp.short_address% )")
 
 
 class Dot15d4CmdDisassociation(Packet):
-    name = "802.15.4 Disassociation Notification Payload"
-    fields_desc = [
-        # Disassociation Reason
-        # 0x00 == Reserved
-        # 0x01 == The coordinator wishes the device to leave the PAN
-        # 0x02 == The device wishes to leave the PAN
+    DIASSOCIATION_REASON = {
+        0x01: 'coord_wishes_device_to_leave',
+        0x02: 'device_wishes_to_leave'
         # 0x03 - 0x7f == Reserved
         # 0x80 - 0xff == Reserved for MAC primitive enumeration values
-        ByteEnumField("disassociation_reason", 0x02, {1: 'coord_wishes_device_to_leave', 2: 'device_wishes_to_leave'}),  # noqa: E501
+    }
+
+    name = "802.15.4 Disassociation Notification Command"
+    fields_desc = [
+        ByteEnumField("disassociation_reason", 0x02, DIASSOCIATION_REASON),
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Disassociation Notification Payload ( Disassociation Reason %Dot15d4CmdDisassociation.disassociation_reason% )")  # noqa: E501
+        return self.sprintf(
+            "802.15.4 Disassociation Notification Command "
+            "( Disassociation Reason %Dot15d4CmdDisassociation.disassociation_reason% )")  # noqa: E501
 
 
 class Dot15d4CmdGTSReq(Packet):
-    name = "802.15.4 GTS request command"
+    name = "802.15.4 GTS Request Command"
     fields_desc = [
         # GTS Characteristics field (1 octet)
         # Reserved (bits 6-7)
@@ -467,7 +547,9 @@ class Dot15d4CmdGTSReq(Packet):
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 GTS Request Command ( %Dot15d4CmdGTSReq.gts_len% : %Dot15d4CmdGTSReq.gts_dir% )")  # noqa: E501
+        return self.sprintf(
+            "802.15.4 GTS Request Command "
+            "( %Dot15d4CmdGTSReq.gts_len% : %Dot15d4CmdGTSReq.gts_dir% )")
 
 
 # PAN ID conflict notification command frame is not necessary, only Dot15d4Cmd with cmd_id = 5 ("PANIDConflictNotify")  # noqa: E501
