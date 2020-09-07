@@ -60,7 +60,7 @@ from scapy.packet import Packet, bind_layers
 from scapy.fields import BitField, ByteField, BitEnumField, BitFieldLenField, \
     XShortField, FlagsField, ConditionalField, FieldLenField
 
-from scapy.layers.dot15d4 import Dot15d4Data
+from scapy.layers.dot15d4 import Dot15d4
 from scapy.layers.inet6 import IPv6, IP6Field
 from scapy.layers.inet import UDP
 from scapy.layers.l2 import Ether
@@ -364,7 +364,7 @@ def _extract_upperaddress(pkt, source=True):
     returns: the packed & processed address
     """
     # https://tools.ietf.org/html/rfc6282#section-3.2.2
-    SUPPORTED_LAYERS = (Ether, Dot15d4Data)
+    SUPPORTED_LAYERS = (Ether, Dot15d4)
     underlayer = pkt.underlayer
     while underlayer and not isinstance(underlayer, SUPPORTED_LAYERS):
         underlayer = underlayer.underlayer
@@ -373,14 +373,14 @@ def _extract_upperaddress(pkt, source=True):
         addr = mac2str(underlayer.src if source else underlayer.dst)
         # https://tools.ietf.org/html/rfc2464#section-4
         return LINK_LOCAL_PREFIX[:8] + addr[:3] + b"\xff\xfe" + addr[3:]
-    elif type(underlayer) == Dot15d4Data:
+    elif type(underlayer) == Dot15d4:
         addr = underlayer.src_addr if source else underlayer.dest_addr
         addr = struct.pack(">Q", addr)
-        if underlayer.underlayer.fcf_destaddrmode == 3:  # Extended/long
+        if underlayer.fcf_destaddrmode == 3:  # Extended/long
             tmp_ip = LINK_LOCAL_PREFIX[0:8] + addr
             # Turn off the bit 7.
             return tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]  # noqa: E501
-        elif underlayer.underlayer.fcf_destaddrmode == 2:  # Short
+        elif underlayer.fcf_destaddrmode == 2:  # Short
             return (
                 LINK_LOCAL_PREFIX[0:8] +
                 b"\x00\x00\x00\xff\xfe\x00" +
@@ -516,7 +516,7 @@ class LoWPAN_IPHC(Packet):
             data = raw(packet)
         # else self.nh == 0 not necessary
         elif self._nhField & 0xE0 == 0xE0:  # IPv6 Extension Header Decompression  # noqa: E501
-            warning('Unimplemented: IPv6 Extension Header decompression')  # noqa: E501
+            warning('Unimplemented: IPv6 Extension Header decompression')
             packet.payload = conf.raw_layer(data)
             data = raw(packet)
         else:
@@ -801,7 +801,7 @@ def sixlowpan_defragment(packet_list):
             cls = LoWPANFragmentationSubsequent
         if cls:
             tag = p[cls].datagramTag
-            results[tag] = results.get(tag, b"") + p[cls].payload.load  # noqa: E501
+            results[tag] = results.get(tag, b"") + p[cls].payload.load
     return {tag: SixLoWPAN(x) for tag, x in results.items()}
 
 

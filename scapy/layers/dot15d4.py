@@ -22,7 +22,8 @@ from scapy.data import DLT_IEEE802_15_4_WITHFCS, DLT_IEEE802_15_4_NOFCS
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, Field, LELongField, PacketField, XByteField, \
-    XLEIntField, XLEShortField, FCSField, Emph, FieldListField
+    XLEIntField, XLEShortField, FCSField, Emph, FieldListField, LEEUI64Field, \
+    MultipleTypeField
 
 
 # Utility Functions #
@@ -84,65 +85,105 @@ def panids_present(pkt):
 
 # Fields #
 
-class dot15d4AddressField(Field):
-    __slots__ = ["adjust", "length_of"]
-
-    def __init__(self, name, default, length_of=None, fmt="<H", adjust=None):
-        Field.__init__(self, name, default, fmt)
-        self.length_of = length_of
-        if adjust is not None:
-            self.adjust = adjust
-        else:
-            self.adjust = lambda pkt, x: self.lengthFromAddrMode(pkt, x)
-
+class ShortAddressField(XLEShortField):
     def i2repr(self, pkt, x):
-        """Convert internal value to a nice representation"""
-        if len(hex(self.i2m(pkt, x))) < 7:  # short address
-            return hex(self.i2m(pkt, x))
-        else:  # long address
-            x = "%016x" % self.i2m(pkt, x)
-            return ":".join(["%s%s" % (x[i], x[i + 1]) for i in range(0, len(x), 2)])  # noqa: E501
+        return "0x%04x" % x if x is not None else x
 
-    def addfield(self, pkt, s, val):
-        """Add an internal value to a string"""
-        if self.adjust(pkt, self.length_of) == 2:
-            return s + struct.pack(self.fmt[0] + "H", val)
-        elif self.adjust(pkt, self.length_of) == 8:
-            return s + struct.pack(self.fmt[0] + "Q", val)
-        else:
-            return s
+
+class NoneField(Field):
+    """An empty field, that contains nothing.
+
+    Used in MultipleTypeField then the default is no-value for the field.
+    """
+
+    def __init__(self, name, default):
+        super().__init__(name, default)
 
     def getfield(self, pkt, s):
-        if self.adjust(pkt, self.length_of) == 2:
-            return s[2:], self.m2i(pkt, struct.unpack(self.fmt[0] + "H", s[:2])[0])  # noqa: E501
-        elif self.adjust(pkt, self.length_of) == 8:
-            return s[8:], self.m2i(pkt, struct.unpack(self.fmt[0] + "Q", s[:8])[0])  # noqa: E501
-        else:
-            raise Exception('impossible case')
+        return s, None
 
-    def lengthFromAddrMode(self, pkt, x):
-        addrmode = 0
-        pkttop = pkt.underlayer
-        if pkttop is None:
-            warning("No underlayer to guess address mode")
-            return 0
-        while True:
-            try:
-                addrmode = pkttop.getfieldval(x)
-                break
-            except Exception:
-                if pkttop.underlayer is None:
-                    break
-                pkttop = pkttop.underlayer
-        # print "Underlayer field value of", x, "is", addrmode
-        if addrmode == 2:
-            return 2
-        elif addrmode == 3:
-            return 8
-        return 0
+    def addfield(self, pkt, s, val):
+        return s
+
+
+class AddressingModeField(BitEnumField):
+    ADDRESSING_MODE = {
+        0b00: "Not present",
+        0b10: "Short",
+        0b11: "Extended"
+    }
+
+    __slots__ = 'addressing_mode_of',
+
+    def __init__(self, name, default, addressing_mode_of):
+        super().__init__(name, default, 2, self.ADDRESSING_MODE)
+        self.addressing_mode_of = addressing_mode_of
+
+    def i2m(self, pkt, x):
+        if x is None:
+            # Deduce it from address field
+            address = pkt.getfieldval(self.addressing_mode_of)
+            if isinstance(address, str) and len(address) != 0:
+                return 0b11  # Extended address
+            elif isinstance(address, int):
+                return 0b10  # Short address
+            else:
+                return 0b00  # Not present
+        else:
+            return super().i2m(pkt, x)
 
 
 # Layers #
+
+class Dot15d4AuxSecurityHeader(Packet):
+    KEY_IDENTIFIER_MODE = {
+        # Key is determined implicitly from the originator and recipient(s) of
+        # the frame
+        0: "Implicit",
+        # Key is determined explicitly from the the 1-octet Key Index subfield
+        # of the Key Identifier field
+        1: "1oKeyIndex",
+        # Key is determined explicitly from the 4-octet Key Source and the
+        # 1-octet Key Index
+        2: "4o-KeySource-1oKeyIndex",
+        # Key is determined explicitly from the 8-octet Key Source and the
+        # 1-octet Key Index
+        3: "8o-KeySource-1oKeyIndex"
+    }
+
+    SEC_LEVEL = {
+        0: "None",
+        1: "MIC-32",
+        2: "MIC-64",
+        3: "MIC-128",
+        4: "ENC",
+        5: "ENC-MIC-32",
+        6: "ENC-MIC-64",
+        7: "ENC-MIC-128"
+    }
+
+    name = "802.15.4 Auxiliary Security Header"
+    fields_desc = [
+        BitField("sec_sc_reserved", 0, 3),
+        BitEnumField("sec_sc_keyidmode", 0, 2, KEY_IDENTIFIER_MODE),
+        BitEnumField("sec_sc_seclevel", 0, 3, SEC_LEVEL),
+        XLEIntField("sec_framecounter", 0x00000000),
+        # Key Identifier (variable length): identifies the key that is used for
+        # cryptographic protection.
+        # Key Source : length of sec_keyid_keysource varies btwn 0, 4, and 8
+        # bytes depending on sec_sc_keyidmode.
+        # 4 octets when sec_sc_keyidmode == 2
+        ConditionalField(XLEIntField("sec_keyid_keysource", 0),
+                         lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 2),
+        # 8 octets when sec_sc_keyidmode == 3
+        ConditionalField(LELongField("sec_keyid_keysource", 0),
+                         lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 3),
+        # Key Index (1 octet): allows unique identification of different keys
+        # with the same originator.
+        ConditionalField(XByteField("sec_keyid_keyindex", 0xFF),
+                         lambda pkt: pkt.getfieldval("sec_sc_keyidmode") != 0),
+    ]
+
 
 class Dot15d4(Packet):
     FRAME_TYPE = {
@@ -153,12 +194,6 @@ class Dot15d4(Packet):
         0b101: "Multipurpose",
         0b110: "Fragment",
         0b111: "Extended"
-    }
-
-    ADDRESSING_MODE = {
-        0b00: "Not present",
-        0b10: "Short",
-        0b11: "Extended"
     }
 
     FRAME_VERSION = {
@@ -176,12 +211,36 @@ class Dot15d4(Packet):
         BitEnumField("fcf_pending", 0, 1, [False, True]),
         BitEnumField("fcf_security", 0, 1, [False, True]),
         Emph(BitEnumField("fcf_frametype", 0, 3, FRAME_TYPE)),
-        BitEnumField("fcf_srcaddrmode", 0, 2, ADDRESSING_MODE),
+        AddressingModeField("fcf_srcaddrmode", 0, "src_addr"),
         BitEnumField("fcf_framever", 0, 2, FRAME_VERSION),
-        BitEnumField("fcf_destaddrmode", 2, 2, ADDRESSING_MODE),
+        AddressingModeField("fcf_destaddrmode", 2, "dest_addr"),
         BitField("fcf_reserved_2", 0, 2),
         # Sequence number
         Emph(ByteField("seqnum", 1)),
+        # Addressing fields
+        ConditionalField(
+            XLEShortField("dest_panid", 0xFFFF),
+            lambda pkt: panids_present(pkt)[0]),
+        MultipleTypeField(
+            [(ShortAddressField("dest_addr", 0xFFFF),
+              lambda pkt: pkt.fcf_destaddrmode == 0b10),
+             (LEEUI64Field("dest_addr", 0xFFFFFFFFFFFFFFFF),
+              lambda pkt: pkt.fcf_destaddrmode == 0b11)],
+            NoneField("dest_addr", 0xFFFF)),
+        ConditionalField(
+            XLEShortField("src_panid", 0x0000),
+            lambda pkt: panids_present(pkt)[1]),
+        MultipleTypeField(
+            [(ShortAddressField("src_addr", None),
+              lambda pkt: pkt.fcf_srcaddrmode == 0b10),
+             (LEEUI64Field("src_addr", None),
+              lambda pkt: pkt.fcf_srcaddrmode == 0b11)],
+            NoneField("src_addr", None)),
+        # Security field
+        ConditionalField(
+            PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(),
+                        Dot15d4AuxSecurityHeader),
+            lambda pkt: pkt.fcf_security),
     ]
 
     def mysummary(self):
@@ -249,56 +308,6 @@ class Dot15d4FCS(Dot15d4):
         return p
 
 
-class Dot15d4AuxSecurityHeader(Packet):
-    KEY_IDENTIFIER_MODE = {
-        # Key is determined implicitly from the originator and recipient(s) of
-        # the frame
-        0: "Implicit",
-        # Key is determined explicitly from the the 1-octet Key Index subfield
-        # of the Key Identifier field
-        1: "1oKeyIndex",
-        # Key is determined explicitly from the 4-octet Key Source and the
-        # 1-octet Key Index
-        2: "4o-KeySource-1oKeyIndex",
-        # Key is determined explicitly from the 8-octet Key Source and the
-        # 1-octet Key Index
-        3: "8o-KeySource-1oKeyIndex"
-    }
-
-    SEC_LEVEL = {
-        0: "None",
-        1: "MIC-32",
-        2: "MIC-64",
-        3: "MIC-128",
-        4: "ENC",
-        5: "ENC-MIC-32",
-        6: "ENC-MIC-64",
-        7: "ENC-MIC-128"
-    }
-
-    name = "802.15.4 Auxiliary Security Header"
-    fields_desc = [
-        BitField("sec_sc_reserved", 0, 3),
-        BitEnumField("sec_sc_keyidmode", 0, 2, KEY_IDENTIFIER_MODE),
-        BitEnumField("sec_sc_seclevel", 0, 3, SEC_LEVEL),
-        XLEIntField("sec_framecounter", 0x00000000),
-        # Key Identifier (variable length): identifies the key that is used for
-        # cryptographic protection.
-        # Key Source : length of sec_keyid_keysource varies btwn 0, 4, and 8
-        # bytes depending on sec_sc_keyidmode.
-        # 4 octets when sec_sc_keyidmode == 2
-        ConditionalField(XLEIntField("sec_keyid_keysource", 0),
-                         lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 2),
-        # 8 octets when sec_sc_keyidmode == 3
-        ConditionalField(LELongField("sec_keyid_keysource", 0),
-                         lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 3),
-        # Key Index (1 octet): allows unique identification of different keys
-        # with the same originator.
-        ConditionalField(XByteField("sec_keyid_keyindex", 0xFF),
-                         lambda pkt: pkt.getfieldval("sec_sc_keyidmode") != 0),
-    ]
-
-
 class Dot15d4Ack(Packet):
     name = "802.15.4 Ack"
     fields_desc = []
@@ -306,17 +315,7 @@ class Dot15d4Ack(Packet):
 
 class Dot15d4Data(Packet):
     name = "802.15.4 Data"
-    fields_desc = [
-        XLEShortField("dest_panid", 0xFFFF),
-        dot15d4AddressField("dest_addr", 0xFFFF, length_of="fcf_destaddrmode"),
-        ConditionalField(XLEShortField("src_panid", 0x0),
-                         lambda pkt:panids_present(pkt.underlayer)[1]),
-        ConditionalField(dot15d4AddressField("src_addr", None, length_of="fcf_srcaddrmode"),  # noqa: E501
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),  # noqa: E501
-        # Security field present if fcf_security == True
-        ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),  # noqa: E501
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),  # noqa: E501
-    ]
+    fields_desc = []
 
     def guess_payload_class(self, payload):
         # TODO: See how it's done in wireshark:
@@ -349,12 +348,6 @@ class Dot15d4Data(Packet):
 class Dot15d4Beacon(Packet):
     name = "802.15.4 Beacon"
     fields_desc = [
-        XLEShortField("src_panid", 0x0),
-        dot15d4AddressField("src_addr", None, length_of="fcf_srcaddrmode"),
-        # Security field present if fcf_security == True
-        ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),  # noqa: E501
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),  # noqa: E501
-
         # Superframe spec field:
         BitField("sf_sforder", 15, 4),  # not used by ZigBee
         BitField("sf_beaconorder", 15, 4),  # not used by ZigBee
@@ -385,8 +378,7 @@ class Dot15d4Beacon(Packet):
         FieldListField("pa_short_addresses", [],
                        XLEShortField("", 0x0000),
                        count_from=lambda pkt: pkt.pa_num_short),
-        FieldListField("pa_long_addresses", [],
-                       dot15d4AddressField("", 0, adjust=lambda pkt, x: 8),
+        FieldListField("pa_long_addresses", [], LEEUI64Field("", 0),
                        count_from=lambda pkt: pkt.pa_num_long),
         # TODO beacon payload
     ]
@@ -415,17 +407,6 @@ class Dot15d4Cmd(Packet):
 
     name = "802.15.4 Command"
     fields_desc = [
-        XLEShortField("dest_panid", 0xFFFF),
-        # Users should correctly set the dest_addr field. By default is 0x0 for construction to work.  # noqa: E501
-        dot15d4AddressField("dest_addr", 0x0, length_of="fcf_destaddrmode"),
-        ConditionalField(XLEShortField("src_panid", 0x0),
-                         lambda pkt:panids_present(pkt.underlayer)[1]),
-        ConditionalField(dot15d4AddressField("src_addr", None,
-                         length_of="fcf_srcaddrmode"),
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),  # noqa: E501
-        # Security field present if fcf_security == True
-        ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),  # noqa: E501
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),  # noqa: E501
         ByteEnumField("cmd_id", 0, COMMAND_IDS),
     ]
 

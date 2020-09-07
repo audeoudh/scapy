@@ -42,9 +42,9 @@ assert pkt[Dot15d4FCS].fcf_destaddrmode == 0
 assert pkt[Dot15d4FCS].fcf_framever == 0
 assert pkt[Dot15d4FCS].fcf_srcaddrmode == 2
 assert pkt[Dot15d4FCS].seqnum == 137
+assert pkt[Dot15d4FCS].src_panid == 0x99aa
+assert pkt[Dot15d4FCS].src_addr == 0x0000
 assert Dot15d4Beacon in pkt.layers()
-assert pkt[Dot15d4Beacon].src_panid == 0x99aa
-assert pkt[Dot15d4Beacon].src_addr == 0x0000
 assert pkt[Dot15d4Beacon].sf_beaconorder == 15
 assert pkt[Dot15d4Beacon].sf_sforder == 15
 assert pkt[Dot15d4Beacon].sf_finalcapslot == 15
@@ -74,9 +74,9 @@ assert pkt[Dot15d4FCS].fcf_destaddrmode == 0
 assert pkt[Dot15d4FCS].fcf_framever == 0
 assert pkt[Dot15d4FCS].fcf_srcaddrmode == 2
 assert pkt[Dot15d4FCS].seqnum == 137
+assert pkt[Dot15d4FCS].src_panid == 0x99aa
+assert pkt[Dot15d4FCS].src_addr == 0x0000
 assert Dot15d4Beacon in pkt.layers()
-assert pkt[Dot15d4Beacon].src_panid == 0x99aa
-assert pkt[Dot15d4Beacon].src_addr == 0x0000
 assert pkt[Dot15d4Beacon].sf_beaconorder == 15
 assert pkt[Dot15d4Beacon].sf_sforder == 15
 assert pkt[Dot15d4Beacon].sf_finalcapslot == 15
@@ -89,7 +89,7 @@ assert pkt[Dot15d4Beacon].gts_spec_desccount == 0
 assert pkt[Dot15d4Beacon].pa_num_short == 2
 assert pkt[Dot15d4Beacon].pa_num_long == 1
 assert pkt[Dot15d4Beacon].pa_short_addresses == [0x1234, 0x5678]
-assert pkt[Dot15d4Beacon].pa_long_addresses == [0x1122334455667788]
+assert pkt[Dot15d4Beacon].pa_long_addresses == ["11:22:33:44:55:66:77:88"]
 assert raw(pkt[Dot15d4Beacon].payload) == b'\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00'
 assert pkt[Dot15d4FCS].fcs == 0xd396
 
@@ -106,11 +106,11 @@ assert pkt[Dot15d4FCS].fcf_destaddrmode == 3
 assert pkt[Dot15d4FCS].fcf_framever == 0
 assert pkt[Dot15d4FCS].fcf_srcaddrmode == 3
 assert pkt[Dot15d4FCS].seqnum == 137
+assert pkt[Dot15d4FCS].dest_panid == 0xffff
+assert pkt[Dot15d4FCS].dest_addr == "11:22:33:44:55:66:77:88"
+assert pkt[Dot15d4FCS].src_panid == 0x99aa
+assert pkt[Dot15d4FCS].src_addr == "88:99:aa:bb:cc:dd:ee:ff"
 assert Dot15d4Cmd in pkt.layers()
-assert pkt[Dot15d4Cmd].dest_panid == 0xffff
-assert pkt[Dot15d4Cmd].dest_addr == 0x1122334455667788
-assert pkt[Dot15d4Cmd].src_panid == 0x99aa
-assert pkt[Dot15d4Cmd].src_addr == 0x8899aabbccddeeff
 assert pkt[Dot15d4Cmd].cmd_id == 0x08
 assert Dot15d4CmdCoordRealign in pkt.layers()
 assert pkt[Dot15d4CmdCoordRealign].panid == 0x99aa
@@ -133,11 +133,11 @@ assert pkt[Dot15d4FCS].fcf_destaddrmode == 3
 assert pkt[Dot15d4FCS].fcf_framever == 0
 assert pkt[Dot15d4FCS].fcf_srcaddrmode == 3
 assert pkt[Dot15d4FCS].seqnum == 137
+assert pkt[Dot15d4FCS].dest_panid == 0xffff
+assert pkt[Dot15d4FCS].dest_addr == "11:22:33:44:55:66:77:88"
+assert pkt[Dot15d4FCS].src_panid == 0x99aa
+assert pkt[Dot15d4FCS].src_addr == "88:99:aa:bb:cc:dd:ee:ff"
 assert Dot15d4Cmd in pkt.layers()
-assert pkt[Dot15d4Cmd].dest_panid == 0xffff
-assert pkt[Dot15d4Cmd].dest_addr == 0x1122334455667788
-assert pkt[Dot15d4Cmd].src_panid == 0x99aa
-assert pkt[Dot15d4Cmd].src_addr == 0x8899aabbccddeeff
 assert pkt[Dot15d4Cmd].cmd_id == 0x08
 assert Dot15d4CmdCoordRealign in pkt.layers()
 assert pkt[Dot15d4CmdCoordRealign].panid == 0x99aa
@@ -284,7 +284,7 @@ assert packet.destinyAddr == "ff02::1:ff01:101"
 
 = SixLoWPAN - Advanced 3
 
-packet = Ether()/IP()/UDP()/ZEP2()/Dot15d4(fcf_srcaddrmode=2)/Dot15d4Data(src_addr=0x0)/b"\x7b\x33\x3a\x88\x00\x3c\xb9\x60\x00\x00\x00\xfe\x80\x00\x00\x00\x00\x00\x00\x02\x12\x74\x02\x00\x02\x02\x02\x02\x02\x00\x12\x74\x02\x00\x02\x02\x02\x00\x00\x00\x00\x00\x00"
+packet = Ether()/IP()/UDP()/ZEP2()/Dot15d4(fcf_srcaddrmode=2, src_addr=0x0)/Dot15d4Data()/b"\x7b\x33\x3a\x88\x00\x3c\xb9\x60\x00\x00\x00\xfe\x80\x00\x00\x00\x00\x00\x00\x02\x12\x74\x02\x00\x02\x02\x02\x02\x02\x00\x12\x74\x02\x00\x02\x02\x02\x00\x00\x00\x00\x00\x00"
 packet = Ether(raw(packet))
 assert packet.sourceAddr == 'fe80::ff:fe00:0'
 assert packet.destinyAddr == 'fe80::ff:fe00:ffff'
@@ -306,7 +306,7 @@ assert packet.dam == 0x2
 assert packet._nhField == 0x3a
 
 = LoWPAN_IPHC - Extracted packet
-icmp = Ether()/IP()/UDP()/ZEP2()/Dot15d4(fcf_srcaddrmode=2)/Dot15d4Data(src_addr=0xFFFF)/b"\x7b\x3b\x3a\x01\x86\x00\xd3\xfd\x80\x00\x00\xc8\x00\x05\x7e\x40\x00\x00\x00\x00\x03\x04\x40\xc0\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\xaa\xaa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x01\x00\x00\x00\x00\x05\x00\x01\x02\x02\x12\x13\xff\xfe\x14\x15\x16\x7b\x66\x6f\x6e\x74\x2d"
+icmp = Ether()/IP()/UDP()/ZEP2()/Dot15d4(fcf_srcaddrmode=2, src_addr=0xFFFF)/Dot15d4Data() /b"\x7b\x3b\x3a\x01\x86\x00\xd3\xfd\x80\x00\x00\xc8\x00\x05\x7e\x40\x00\x00\x00\x00\x03\x04\x40\xc0\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\xaa\xaa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x01\x00\x00\x00\x00\x05\x00\x01\x02\x02\x12\x13\xff\xfe\x14\x15\x16\x7b\x66\x6f\x6e\x74\x2d"
 packet = Ether(raw(icmp))
 assert packet[LoWPAN_IPHC][IPv6].dst == 'ff02::1'
 
@@ -403,7 +403,7 @@ assert Dot15d4Ack in pkt_2
 
 assert ZEP2 in pkt_3
 assert ICMPv6NDOptSrcLLAddr in pkt_3
-assert pkt_3[Dot15d4Data].dest_panid == 0x1baa
+assert pkt_3[Dot15d4].dest_panid == 0x1baa
 
 = SixLoWPAN - Using ETH
 
@@ -531,14 +531,14 @@ assert pkt1[ZigbeeSecurityHeader].extended_nonce == 1
 
 assert Dot15d4 in pkt2
 assert Dot15d4Cmd in pkt2
-assert pkt2[Dot15d4Cmd].dest_addr == 0xffff
-assert pkt2[Dot15d4Cmd].dest_panid == 0xffff
+assert pkt2[Dot15d4].dest_addr == 0xffff
+assert pkt2[Dot15d4].dest_panid == 0xffff
 assert pkt2[Dot15d4Cmd].cmd_id == 7
 
 assert Dot15d4 in pkt3
 assert Dot15d4Beacon in pkt3
 assert ZigBeeBeacon in pkt3
-assert pkt3[Dot15d4Beacon].src_panid == 0x1ff
+assert pkt3[Dot15d4].src_panid == 0x1ff
 assert pkt3[ZigBeeBeacon].nwkc_protocol_version== 2
 assert pkt3[ZigBeeBeacon].extended_pan_id == "00:00:72:6f:73:6e:65:73"
 assert pkt3[ZigBeeBeacon].tx_offset == 16777215
