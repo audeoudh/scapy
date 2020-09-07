@@ -418,6 +418,26 @@ class RandMAC(RandString):
         return "%02x:%02x:%02x:%02x:%02x:%02x" % self.mac
 
 
+class RandEUI64(RandString):
+    def __init__(self, template="*"):
+        RandString.__init__(self)
+        template += ":*:*:*:*:*:*:*"
+        template = template.split(":")
+        self.eui64 = ()
+        for i in range(8):
+            if template[i] == "*":
+                v = RandByte()
+            elif "-" in template[i]:
+                x, y = template[i].split("-")
+                v = RandNum(int(x, 16), int(y, 16))
+            else:
+                v = int(template[i], 16)
+            self.eui64 += (v,)
+
+    def _fix(self):
+        return "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x" % self.eui64
+
+
 class RandIP6(RandString):
     def __init__(self, ip6template="**"):
         RandString.__init__(self)

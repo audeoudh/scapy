@@ -18,10 +18,9 @@ from scapy.packet import bind_layers, bind_bottom_up, Packet
 from scapy.fields import BitField, ByteField, XLEIntField, ConditionalField, \
     ByteEnumField, EnumField, BitEnumField, FieldListField, FlagsField, \
     IntField, PacketListField, ShortField, StrField, StrFixedLenField, \
-    StrLenField, XLEShortField, XStrField
+    StrLenField, XLEShortField, XStrField, LEEUI64Field
 
-from scapy.layers.dot15d4 import dot15d4AddressField, Dot15d4Beacon, Dot15d4, \
-    Dot15d4FCS
+from scapy.layers.dot15d4 import Dot15d4Beacon, Dot15d4, Dot15d4FCS
 from scapy.layers.inet import UDP
 from scapy.layers.ntp import TimeStampField
 
@@ -256,8 +255,12 @@ class ZigbeeNWK(Packet):
 
         # ConditionalField(XLongField("ext_dst", 0), lambda pkt:pkt.flags & 8),
 
-        ConditionalField(dot15d4AddressField("ext_dst", 0, adjust=lambda pkt, x: 8), lambda pkt:pkt.flags & 8),  # noqa: E501
-        ConditionalField(dot15d4AddressField("ext_src", 0, adjust=lambda pkt, x: 8), lambda pkt:pkt.flags & 16),  # noqa: E501
+        ConditionalField(
+            LEEUI64Field("ext_dst", 0),
+            lambda pkt: pkt.flags & 8),
+        ConditionalField(
+            LEEUI64Field("ext_src", 0),
+            lambda pkt: pkt.flags & 16),
 
         ConditionalField(ByteField("relay_count", 1), lambda pkt:pkt.flags & 0x04),  # noqa: E501
         ConditionalField(ByteField("relay_index", 0), lambda pkt:pkt.flags & 0x04),  # noqa: E501
@@ -328,8 +331,9 @@ class ZigbeeNWKCommandPayload(Packet):
         # Path cost (1 octet)
         ConditionalField(ByteField("path_cost", 0), lambda pkt: pkt.cmd_identifier == 1),  # noqa: E501
         # Destination IEEE Address (0/8 octets), only present when dest_addr_bit has a value of 1  # noqa: E501
-        ConditionalField(dot15d4AddressField("ext_dst", 0, adjust=lambda pkt, x: 8),  # noqa: E501
-                         lambda pkt: (pkt.cmd_identifier == 1 and pkt.dest_addr_bit == 1)),  # noqa: E501
+        ConditionalField(
+            LEEUI64Field("ext_dst", 0),
+            lambda pkt: (pkt.cmd_identifier == 1 and pkt.dest_addr_bit == 1)),
 
         # - Route Reply Command - #
         # Command options (1 octet)
@@ -347,11 +351,15 @@ class ZigbeeNWKCommandPayload(Packet):
         # Path cost (1 octet)
         ConditionalField(ByteField("path_cost", 0), lambda pkt: pkt.cmd_identifier == 2),  # noqa: E501
         # Originator IEEE address (0/8 octets)
-        ConditionalField(dot15d4AddressField("originator_addr", 0, adjust=lambda pkt, x: 8),  # noqa: E501
-                         lambda pkt: (pkt.cmd_identifier == 2 and pkt.originator_addr_bit == 1)),  # noqa: E501
+        ConditionalField(
+            LEEUI64Field("originator_addr", 0),
+            lambda pkt: (pkt.cmd_identifier == 2 and
+                         pkt.originator_addr_bit == 1)),
         # Responder IEEE address (0/8 octets)
-        ConditionalField(dot15d4AddressField("responder_addr", 0, adjust=lambda pkt, x: 8),  # noqa: E501
-                         lambda pkt: (pkt.cmd_identifier == 2 and pkt.responder_addr_bit == 1)),  # noqa: E501
+        ConditionalField(
+            LEEUI64Field("responder_addr", 0),
+            lambda pkt: (pkt.cmd_identifier == 2 and
+                         pkt.responder_addr_bit == 1)),
 
         # - Network Status Command - #
         # Status code (1 octet)
@@ -434,7 +442,9 @@ class ZigbeeNWKCommandPayload(Packet):
             lambda pkt: pkt.cmd_identifier == 9),
         ConditionalField(BitField("report_information_count", 0, 5), lambda pkt: pkt.cmd_identifier == 9),  # noqa: E501
         # EPID: Extended PAN ID (8 octets)
-        ConditionalField(dot15d4AddressField("epid", 0, adjust=lambda pkt, x: 8), lambda pkt: pkt.cmd_identifier == 9),  # noqa: E501
+        ConditionalField(
+            LEEUI64Field("epid", 0),
+            lambda pkt: pkt.cmd_identifier == 9),
         # Report information (variable length)
         # Only present if we have a PAN Identifier Conflict Report
         ConditionalField(
@@ -450,7 +460,9 @@ class ZigbeeNWKCommandPayload(Packet):
             lambda pkt: pkt.cmd_identifier == 10),
         ConditionalField(BitField("update_information_count", 0, 5), lambda pkt: pkt.cmd_identifier == 10),  # noqa: E501
         # EPID: Extended PAN ID (8 octets)
-        ConditionalField(dot15d4AddressField("epid", 0, adjust=lambda pkt, x: 8), lambda pkt: pkt.cmd_identifier == 10),  # noqa: E501
+        ConditionalField(
+            LEEUI64Field("epid", 0),
+            lambda pkt: pkt.cmd_identifier == 10),
         # Update Id (1 octet)
         ConditionalField(ByteField("update_id", 0), lambda pkt: pkt.cmd_identifier == 10),  # noqa: E501
         # Update Information (Variable)
@@ -557,12 +569,14 @@ class ZigbeeSecurityHeader(Packet):
         # Frame counter (4 octets)
         XLEIntField("fc", 0),  # provide frame freshness and prevent duplicate frames  # noqa: E501
         # Source address (0/8 octets)
-        ConditionalField(dot15d4AddressField("source", 0, adjust=lambda pkt, x: 8), lambda pkt: pkt.extended_nonce),  # noqa: E501
+        ConditionalField(
+            LEEUI64Field("source", 0),
+            lambda pkt: pkt.extended_nonce),
         # Key sequence number (0/1 octet): only present when key identifier is 1 (network key)  # noqa: E501
         ConditionalField(ByteField("key_seqnum", 0), lambda pkt: pkt.getfieldval("key_type") == 1),  # noqa: E501
         # Payload
         # the length of the encrypted data is the payload length minus the MIC
-        StrField("data", ""),  # noqa: E501
+        StrField("data", ""),
         # Message Integrity Code (0/variable in size), length depends on nwk_seclevel  # noqa: E501
         XStrField("mic", ""),
     ]
@@ -723,14 +737,15 @@ class ZigbeeAppCommandPayload(Packet):
             16: "APS_CMD_CONFIRM_KEY"
         }),
         # SKKE Commands
-        ConditionalField(dot15d4AddressField("initiator", 0,
-                                             adjust=lambda pkt, x: 8),
-                         lambda pkt: pkt.cmd_identifier in [1, 2, 3, 4]),
-        ConditionalField(dot15d4AddressField("responder", 0,
-                                             adjust=lambda pkt, x: 8),
-                         lambda pkt: pkt.cmd_identifier in [1, 2, 3, 4]),
-        ConditionalField(StrFixedLenField("data", 0, length=16),
-                         lambda pkt: pkt.cmd_identifier in [1, 2, 3, 4]),
+        ConditionalField(
+            LEEUI64Field("initiator", 0),
+            lambda pkt: pkt.cmd_identifier in [1, 2, 3, 4]),
+        ConditionalField(
+            LEEUI64Field("responder", 0),
+            lambda pkt: pkt.cmd_identifier in [1, 2, 3, 4]),
+        ConditionalField(
+            StrFixedLenField("data", 0, length=16),
+            lambda pkt: pkt.cmd_identifier in [1, 2, 3, 4]),
         # Transport-key Command
         ConditionalField(
             ByteEnumField("key_type", 0, _TransportKeyKeyTypes),
@@ -743,15 +758,15 @@ class ZigbeeAppCommandPayload(Packet):
             lambda pkt: (pkt.cmd_identifier == 5 and
                          pkt.key_type in [0x01, 0x05])),
         ConditionalField(
-            dot15d4AddressField("dest_addr", 0, adjust=lambda pkt, x: 8),
+            LEEUI64Field("dest_addr", 0),
             lambda pkt: (pkt.cmd_identifier == 5 and
                          pkt.key_type not in [0x02, 0x03])),
         ConditionalField(
-            dot15d4AddressField("src_addr", 0, adjust=lambda pkt, x: 8),
+            LEEUI64Field("src_addr", 0),
             lambda pkt: (pkt.cmd_identifier == 5 and
                          pkt.key_type not in [0x02, 0x03])),
         ConditionalField(
-            dot15d4AddressField("partner_addr", 0, adjust=lambda pkt, x: 8),
+            LEEUI64Field("partner_addr", 0),
             lambda pkt: (pkt.cmd_identifier == 5 and
                          pkt.key_type in [0x02, 0x03])),
         ConditionalField(
@@ -759,34 +774,37 @@ class ZigbeeAppCommandPayload(Packet):
             lambda pkt: (pkt.cmd_identifier == 5 and
                          pkt.key_type in [0x02, 0x03])),
         # Update-Device Command
-        ConditionalField(dot15d4AddressField("address", 0,
-                                             adjust=lambda pkt, x: 8),
-                         lambda pkt: pkt.cmd_identifier == 6),
-        ConditionalField(XLEShortField("short_address", 0),
-                         lambda pkt: pkt.cmd_identifier == 6),
-        ConditionalField(ByteField("status", 0),
-                         lambda pkt: pkt.cmd_identifier == 6),
+        ConditionalField(
+            LEEUI64Field("address", 0),
+            lambda pkt: pkt.cmd_identifier == 6),
+        ConditionalField(
+            XLEShortField("short_address", 0),
+            lambda pkt: pkt.cmd_identifier == 6),
+        ConditionalField(
+            ByteField("status", 0),
+            lambda pkt: pkt.cmd_identifier == 6),
         # Remove-Device Command
-        ConditionalField(dot15d4AddressField("address", 0,
-                                             adjust=lambda pkt, x: 8),
-                         lambda pkt: pkt.cmd_identifier == 7),
+        ConditionalField(
+            LEEUI64Field("address", 0),
+            lambda pkt: pkt.cmd_identifier == 7),
         # Request-Key Command
         ConditionalField(
             ByteEnumField("key_type", 0, _RequestKeyKeyTypes),
             lambda pkt: pkt.cmd_identifier == 8),
         ConditionalField(
-            dot15d4AddressField("partner_addr", 0, adjust=lambda pkt, x: 8),
+            LEEUI64Field("partner_addr", 0),
             lambda pkt: (pkt.cmd_identifier == 8 and pkt.key_type == 0x02)),
         # Switch-Key Command
-        ConditionalField(StrFixedLenField("seqnum", None, 8),
-                         lambda pkt: pkt.cmd_identifier == 9),
+        ConditionalField(
+            StrFixedLenField("seqnum", None, 8),
+            lambda pkt: pkt.cmd_identifier == 9),
         # Un-implemented: 10-13 (+?)
-        ConditionalField(StrField("data", ""),
-                         lambda pkt: (pkt.cmd_identifier >= 10 and
-                                      pkt.cmd_identifier <= 13)),
+        ConditionalField(
+            StrField("data", ""),
+            lambda pkt: (10 <= pkt.cmd_identifier <= 13)),
         # Tunnel Command
         ConditionalField(
-            dot15d4AddressField("dest_addr", 0, adjust=lambda pkt, x: 8),
+            LEEUI64Field("dest_addr", 0),
             lambda pkt: pkt.cmd_identifier == 14),
         ConditionalField(
             FlagsField("frame_control", 2, 4, [
@@ -819,7 +837,7 @@ class ZigbeeAppCommandPayload(Packet):
             ByteEnumField("key_type", 0, _TransportKeyKeyTypes),
             lambda pkt: pkt.cmd_identifier == 15),
         ConditionalField(
-            dot15d4AddressField("address", 0, adjust=lambda pkt, x: 8),
+            LEEUI64Field("address", 0),
             lambda pkt: pkt.cmd_identifier == 15),
         ConditionalField(
             StrFixedLenField("key_hash", None, 16),
@@ -832,7 +850,7 @@ class ZigbeeAppCommandPayload(Packet):
             ByteEnumField("key_type", 0, _TransportKeyKeyTypes),
             lambda pkt: pkt.cmd_identifier == 16),
         ConditionalField(
-            dot15d4AddressField("address", 0, adjust=lambda pkt, x: 8),
+            LEEUI64Field("address", 0),
             lambda pkt: pkt.cmd_identifier == 16)
     ]
 
@@ -862,7 +880,7 @@ class ZigBeeBeacon(Packet):
         # Reserved (2 bits)
         BitField("reserved", 0, 2),
         # Extended PAN ID (8 octets)
-        dot15d4AddressField("extended_pan_id", 0, adjust=lambda pkt, x: 8),
+        LEEUI64Field("extended_pan_id", 0),
         # Tx offset (3 bytes)
         # In ZigBee 2006 the Tx-Offset is optional, while in the 2007 and later versions, the Tx-Offset is a required value.  # noqa: E501
         BitField("tx_offset", 0, 24),

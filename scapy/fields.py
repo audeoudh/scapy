@@ -26,12 +26,13 @@ from scapy.dadict import DADict
 from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, \
     RandIP, RandIP6, RandLong, RandMAC, RandNum, RandShort, RandSInt, \
     RandSByte, RandTermString, RandUUID, VolatileValue, RandSShort, \
-    RandSLong, RandFloat
+    RandSLong, RandFloat, RandEUI64
 from scapy.data import EPOCH
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.compat import bytes_hex, chb, orb, plain_str, raw, bytes_encode
 from scapy.pton_ntop import inet_ntop, inet_pton
-from scapy.utils import inet_aton, inet_ntoa, lhex, mac2str, str2mac
+from scapy.utils import inet_aton, inet_ntoa, lhex, mac2str, str2mac, \
+    eui642str, str2eui64
 from scapy.utils6 import in6_6to4ExtractAddr, in6_isaddr6to4, \
     in6_isaddrTeredo, in6_ptop, Net6, teredoAddrExtractInfo
 from scapy.base_classes import BasePacket, Gen, Net, Field_metaclass
@@ -525,6 +526,41 @@ class MACField(Field):
 
     def randval(self):
         return RandMAC()
+
+
+class EUI64Field(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "8s")
+
+    def i2m(self, pkt, x):
+        if x is None:
+            return b"\0\0\0\0\0\0\0\0"
+        try:
+            x = eui642str(x)
+        except (struct.error, OverflowError):
+            x = bytes_encode(x)[:8]
+        return x
+
+    def m2i(self, pkt, x):
+        return str2eui64(x)
+
+    def any2i(self, pkt, x):
+        if isinstance(x, bytes) and len(x) == 8:
+            x = self.m2i(pkt, x)
+        return x
+
+    def randval(self):
+        return RandEUI64()
+
+
+class LEEUI64Field(EUI64Field):
+    def i2m(self, pkt, x):
+        x = super().i2m(pkt, x)
+        return x[::-1]
+
+    def m2i(self, pkt, x):
+        x = x[::-1]
+        return super().m2i(pkt, x)
 
 
 class IPField(Field):

@@ -482,6 +482,23 @@ def str2mac(s):
     return ("%02x:" * 6)[:-1] % tuple(s)
 
 
+eui642str = mac2str  # This method is compatible for 6- and 8- bytes length
+
+
+def valid_eui64(mac):
+    try:
+        return len(mac2str(mac)) == 8
+    except ValueError:
+        pass
+    return False
+
+
+def str2eui64(s):
+    if isinstance(s, str):
+        return ("%02x:" * 8)[:-1] % tuple(map(ord, s))
+    return ("%02x:" * 8)[:-1] % tuple(s)
+
+
 def randstring(length):
     """
     Returns a random string of length (length >= 0)

@@ -209,7 +209,6 @@ assert raw(q) == b'`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
 
 ieee802_firstfrag = b"\x41\xcc\xa3\xcd\xab\x16\x15\x14\xfe\xff\x13\x12\x02\x55\x44\x33\xfe\xff\x22\x11\x02\xc3\x42\x00\x23\x78\xf6\x00\x06\x80\x00\x01\x00\x50\xc4\xf9\x00\x00\x02\x12\x77\x9b\x1a\x9a\x50\x18\x04\xc4\x12\xd5\x00\x00\x3c\x21\x44\x4f\x43\x54\x59\x50\x45\x20\x48\x54\x4d\x4c\x20\x50\x55\x42\x4c\x49\x43\x20\x22\x2d\x2f\x2f\x57\x33\x43\x2f\x2f\x44\x54\x44\x20\x48\x54\x4d\x4c\x20\x34\x2e\x30\x31\x20\x54\x72\x61\x6e\x73\x69\x74\x69\x6f\x6e\x61\x6c\x2f\x2f\x45\x4e\x22\x20\x22\x68\x74\x74\x70\x39\xb5"
 ieee = Dot15d4FCS(ieee802_firstfrag)
-ieee.show()
 assert ieee.fcs == 0xb539
 
 del ieee.fcs
@@ -219,7 +218,6 @@ assert ieee.fcs == 0xb539
 
 ieee802_secfrag = b"\x41\xcc\x4d\xcd\xab\x55\x44\x33\xfe\xff\x22\x11\x02\x16\x15\x14\xfe\xff\x13\x12\x02\xe2\x39\x00\x17\x10\x69\x76\x65\x0d\x0a\x52\x65\x66\x65\x72\x65\x72\x3a\x20\x68\x74\x74\x70\x3a\x2f\x2f\x5b\x61\x61\x61\x61\x3a\x3a\x31\x31\x3a\x32\x32\x66\x66\x3a\x66\x65\x33\x33\x3a\x34\x34\x35\x35\x5d\x2f\x73\x65\x6e\x73\x6f\x72\x2e\x73\x68\x74\x6d\x6c\x0d\x0a\x55\x73\x65\x72\x2d\x41\x67\x65\x6e\x74\x3a\x20\x4d\x6f\x7a\x69\x6c\x6c\x61\x2f\x35\x2e\x30\x20\x28\x58\x31\x31\x3b\x20\x55\x3b\x20\x4c\x69\x66\xac"
 ieee = Dot15d4FCS(ieee802_secfrag)
-ieee.show()
 assert ieee.fcs == 0xac66
 
 del ieee.fcs
@@ -228,7 +226,6 @@ assert ieee.fcs == 0xac66
 
 ieee802_iphc = b"\x41\xcc\xb5\xcd\xab\x16\x15\x14\xfe\xff\x13\x12\x02\x55\x44\x33\xfe\xff\x22\x11\x02\x78\xf6\x00\x06\x80\x00\x01\x00\x50\xc4\xfa\x00\x00\x01\xf7\x89\xf3\x02\x5f\x50\x18\x04\xc4\x48\x28\x00\x00\x43\x6f\x6e\x74\x65\x6e\x74\x2d\x74\x79\x70\x65\x3a\x20\x74\x65\x78\x74\x2f\x63\x73\x73\x0d\x0a\x0d\x0a\xc1\x16"
 ieee = Dot15d4FCS(ieee802_iphc)
-ieee.show()
 assert ieee.fcs == 0x16c1
 
 del ieee.fcs
@@ -247,7 +244,6 @@ assert p.sec_keyid_keysource == 11024999611375677183
 
 # RPL: unimplemented
 #p = SixLoWPAN(b"\x7b\x3b\x3a\x1a\x9b\x02\xae\x30\x21\x00\x00\xef\x05\x12\x00\x80\x20\x02\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x33\x44\x09\x04\x00\x00\x00\x00\x06\x04\x00\x01\xef\xff")
-#p.show2()
 
 = Fragmentate packet & defragmentate
 
@@ -271,7 +267,6 @@ assert raw(ipv6_tcp_http) == raw(ipv6)
 ######## TODO ########
 
 #packet = SixLoWPAN(b"\x83\x00\x0a\x00\xff\x0a\x11\x78\x04\x00\x28\x00\x00\x00\x80\x00")
-#packet.show2()
 
 = SixLoWPAN - Advanced 1
 
@@ -291,7 +286,6 @@ assert packet.destinyAddr == "ff02::1:ff01:101"
 
 packet = Ether()/IP()/UDP()/ZEP2()/Dot15d4(fcf_srcaddrmode=2)/Dot15d4Data(src_addr=0x0)/b"\x7b\x33\x3a\x88\x00\x3c\xb9\x60\x00\x00\x00\xfe\x80\x00\x00\x00\x00\x00\x00\x02\x12\x74\x02\x00\x02\x02\x02\x02\x02\x00\x12\x74\x02\x00\x02\x02\x02\x00\x00\x00\x00\x00\x00"
 packet = Ether(raw(packet))
-packet.show2()
 assert packet.sourceAddr == 'fe80::ff:fe00:0'
 assert packet.destinyAddr == 'fe80::ff:fe00:ffff'
 
@@ -300,7 +294,6 @@ assert packet.destinyAddr == 'fe80::ff:fe00:ffff'
 #ICMP: Neighbour Solicitation
 icmp = b"\x7b\xf6\x00\x3a\x00\x01\x87\x00\xaa\x66\x00\x00\x00\x00\xaa\xaa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01\x02\x02\x11\x22\xff\xfe\x33\x44\x55\x00\x00\x00\x00\x00\x00"
 packet = SixLoWPAN(icmp)
-#packet.show2()
 assert packet.tf == 0x3
 assert packet.nh == 0
 assert packet.hlim == 0x3
@@ -335,7 +328,6 @@ assert packet[IPv6].nh == 0x11 # the ipv6 header
 assert packet[IPv6][UDP].sport == 8765 #udp decompressed header
 assert packet[IPv6][UDP].dport == 5678 #udp decompressed header
 assert packet[IPv6][UDP].chksum == 0x8e60 #udp decompressed header
-packet.show2()
 
 = SixLoWPAN - Check Traffic Class and Flow Label when TF=0
 packet = SixLoWPAN()/LoWPAN_IPHC(tf=0)/IPv6(tc = 12, fl=467)
@@ -462,7 +454,6 @@ assert packet.dac == 0x1
 assert packet.dam == 0x03
 assert packet._nhField == 0x06
 assert packet._hopLimit == 128
-packet.show2()
 
 
 ###################
@@ -533,10 +524,8 @@ assert Dot15d4 in pkt1
 assert ZigbeeNWK in pkt1
 assert ZigbeeSecurityHeader in pkt1
 assert pkt1[ZigbeeNWK].flags == 18
-assert pkt1[ZigbeeNWK].ext_src == 3781220488824152
-f,v = pkt1[ZigbeeNWK].getfield_and_val("ext_src")
-assert f.i2repr(None, v) == "00:0d:6f:00:00:0d:c5:58"
-assert pkt1[ZigbeeSecurityHeader].source == 3781220488824152
+assert pkt1[ZigbeeNWK].ext_src == "00:0d:6f:00:00:0d:c5:58"
+assert pkt1[ZigbeeSecurityHeader].source == '00:0d:6f:00:00:0d:c5:58'
 assert pkt1[ZigbeeSecurityHeader].key_type == 1
 assert pkt1[ZigbeeSecurityHeader].extended_nonce == 1
 
@@ -551,9 +540,7 @@ assert Dot15d4Beacon in pkt3
 assert ZigBeeBeacon in pkt3
 assert pkt3[Dot15d4Beacon].src_panid == 0x1ff
 assert pkt3[ZigBeeBeacon].nwkc_protocol_version== 2
-assert pkt3[ZigBeeBeacon].extended_pan_id == 125823003551091
-f,v = pkt3[ZigBeeBeacon].getfield_and_val("extended_pan_id")
-assert f.i2repr(None, v) == "00:00:72:6f:73:6e:65:73"
+assert pkt3[ZigBeeBeacon].extended_pan_id == "00:00:72:6f:73:6e:65:73"
 assert pkt3[ZigBeeBeacon].tx_offset == 16777215
 
 = Zigbee - skke_1 transport key
@@ -574,12 +561,8 @@ f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("cmd_identifier")
 assert f.i2repr(None, v) == "APS_CMD_TRANSPORT_KEY"
 assert pkt1[ZigbeeAppCommandPayload].key == b"&Tkr;9jr{]RqQ}9/"
 assert pkt1[ZigbeeAppCommandPayload].key_seqnum == 0
-assert pkt1[ZigbeeAppCommandPayload].dest_addr == 4502500120025882
-f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("dest_addr")
-assert f.i2repr(None, v) == "00:0f:ff:00:00:41:5b:1a"
-assert pkt1[ZigbeeAppCommandPayload].src_addr == 18446744073709551615
-f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("src_addr")
-assert f.i2repr(None, v) == "ff:ff:ff:ff:ff:ff:ff:ff"
+assert pkt1[ZigbeeAppCommandPayload].dest_addr == '00:0f:ff:00:00:41:5b:1a'
+assert pkt1[ZigbeeAppCommandPayload].src_addr == 'ff:ff:ff:ff:ff:ff:ff:ff'
 
 = Zigbee - Link Status
 
@@ -631,8 +614,8 @@ assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x05
 assert pkt[ZigbeeAppCommandPayload].key_type == 1
 assert pkt[ZigbeeAppCommandPayload].key == b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f'
 assert pkt[ZigbeeAppCommandPayload].key_seqnum == 0
-assert pkt[ZigbeeAppCommandPayload].dest_addr == 0x1122334455667788
-assert pkt[ZigbeeAppCommandPayload].src_addr == 0x8899aabbccddeeff
+assert pkt[ZigbeeAppCommandPayload].dest_addr == '11:22:33:44:55:66:77:88'
+assert pkt[ZigbeeAppCommandPayload].src_addr == '88:99:aa:bb:cc:dd:ee:ff'
 assert raw(pkt[ZigbeeAppCommandPayload].payload) == b''
 
 = Zigbee - Request Key
@@ -648,7 +631,7 @@ assert raw(pkt[ZigbeeAppCommandPayload].payload) == b''
 pkt = ZigbeeAppCommandPayload(b'\x0e\x88wfUD3"\x11!\xe20\x0bP\x00\x00\xff\xee\xdd\xcc\xbb\xaa\x99\x88\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc')
 assert ZigbeeAppCommandPayload in pkt.layers()
 assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x0e
-assert pkt[ZigbeeAppCommandPayload].dest_addr == 0x1122334455667788
+assert pkt[ZigbeeAppCommandPayload].dest_addr == '11:22:33:44:55:66:77:88'
 assert pkt[ZigbeeAppCommandPayload].aps_frametype == 1
 assert pkt[ZigbeeAppCommandPayload].delivery_mode == 0
 assert pkt[ZigbeeAppCommandPayload].frame_control == 0b0010
@@ -661,7 +644,7 @@ pkt = ZigbeeAppCommandPayload(b'\x0f\x04\x88wfUD3"\x11\x00\x01\x02\x03\x04\x05\x
 assert ZigbeeAppCommandPayload in pkt.layers()
 assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x0f
 assert pkt[ZigbeeAppCommandPayload].key_type == 0x04
-assert pkt[ZigbeeAppCommandPayload].address == 0x1122334455667788
+assert pkt[ZigbeeAppCommandPayload].address == '11:22:33:44:55:66:77:88'
 assert pkt[ZigbeeAppCommandPayload].key_hash == b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f'
 assert raw(pkt[ZigbeeAppCommandPayload].payload) == b''
 
@@ -672,7 +655,7 @@ assert ZigbeeAppCommandPayload in pkt.layers()
 assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x10
 assert pkt[ZigbeeAppCommandPayload].status == 0
 assert pkt[ZigbeeAppCommandPayload].key_type == 0x04
-assert pkt[ZigbeeAppCommandPayload].address == 0x1122334455667788
+assert pkt[ZigbeeAppCommandPayload].address == '11:22:33:44:55:66:77:88'
 assert raw(pkt[ZigbeeAppCommandPayload].payload) == b''
 
 = Zigbee - APS acknowledgment (with the Acknowledgment Format enabled)
@@ -687,7 +670,6 @@ assert raw(pkt[ZigbeeAppDataPayload].payload) == b''
 = Zigbee - APS acknowledgment (with the Acknowledgment Format disabled)
 pkt = ZigbeeAppDataPayload(b'\x02\x00\x02\x00\x00\x00\x00\xa6')
 assert ZigbeeAppDataPayload in pkt.layers()
-pkt.show()
 assert pkt[ZigbeeAppDataPayload].aps_frametype == 2
 assert pkt[ZigbeeAppDataPayload].delivery_mode == 0
 assert pkt[ZigbeeAppDataPayload].frame_control == 0b0000
