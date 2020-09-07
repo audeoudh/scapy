@@ -513,6 +513,26 @@ class Dot15d4CmdDisassociation(Packet):
             "( Disassociation Reason %Dot15d4CmdDisassociation.disassociation_reason% )")  # noqa: E501
 
 
+class Dot15d4CmdDataRequest(Packet):
+    name = "802.15.4 Data Request Command"
+    fields_desc = []
+
+
+class Dot15d4CmdPANIDConflictNotif(Packet):
+    name = "802.15.4 PAN ID Conflict Notification Command"
+    fields_desc = []
+
+
+class Dot15d4CmdOrphanNotif(Packet):
+    name = "802.15.4 Orphan Notification Command"
+    fields_desc = []
+
+
+class Dot15d4CmdBeaconReq(Packet):
+    name = "802.15.4 Beacon Request"
+    fields_desc = []
+
+
 class Dot15d4CmdGTSReq(Packet):
     name = "802.15.4 GTS Request Command"
     fields_desc = [
@@ -533,9 +553,6 @@ class Dot15d4CmdGTSReq(Packet):
             "( %Dot15d4CmdGTSReq.gts_len% : %Dot15d4CmdGTSReq.gts_dir% )")
 
 
-# PAN ID conflict notification command frame is not necessary, only Dot15d4Cmd with cmd_id = 5 ("PANIDConflictNotify")  # noqa: E501
-# Orphan notification command not necessary, only Dot15d4Cmd with cmd_id = 6 ("OrphanNotify")  # noqa: E501
-
 # Bindings #
 bind_layers(Dot15d4, Dot15d4Beacon, fcf_frametype=0)
 bind_layers(Dot15d4, Dot15d4Data, fcf_frametype=1)
@@ -544,6 +561,10 @@ bind_layers(Dot15d4, Dot15d4Cmd, fcf_frametype=3)
 bind_layers(Dot15d4Cmd, Dot15d4CmdAssocReq, cmd_id=0x01)
 bind_layers(Dot15d4Cmd, Dot15d4CmdAssocResp, cmd_id=0x02)
 bind_layers(Dot15d4Cmd, Dot15d4CmdDisassociation, cmd_id=0x03)
+bind_layers(Dot15d4Cmd, Dot15d4CmdDataRequest, cmd_id=0x04)
+bind_layers(Dot15d4Cmd, Dot15d4CmdPANIDConflictNotif, cmd_id=0x05)
+bind_layers(Dot15d4Cmd, Dot15d4CmdOrphanNotif, cmd_id=0x06)
+bind_layers(Dot15d4Cmd, Dot15d4CmdBeaconReq, cmd_id=0x07)
 bind_layers(Dot15d4Cmd, Dot15d4CmdCoordRealign, cmd_id=0x08)
 bind_layers(Dot15d4Cmd, Dot15d4CmdGTSReq, cmd_id=0x09)
 
